@@ -3,7 +3,7 @@ package storage
 
 import "github.com/ccastillejo-accent/osin"
 
-// Storage extends github.com/RangelReale/osin.Storage with create, update and delete methods for clients.
+// Storage extends github.com/ccastillejo-accent/osin.Storage with create, update and delete methods for clients.
 type Storage interface {
 	osin.Storage
 
