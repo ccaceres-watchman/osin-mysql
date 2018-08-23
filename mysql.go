@@ -21,16 +21,17 @@ var schemas = []string{`CREATE TABLE IF NOT EXISTS {prefix}client (
 	extra 		 varchar(255) NOT NULL,
 	redirect_uri varchar(255) NOT NULL
 )`, `CREATE TABLE IF NOT EXISTS {prefix}authorize (
-	client       varchar(255) BINARY NOT NULL,
-	code         varchar(255) BINARY NOT NULL PRIMARY KEY,
-	expires_in   int(10) NOT NULL,
-	scope        varchar(255) NOT NULL,
-	redirect_uri varchar(255) NOT NULL,
-	state        varchar(255) NOT NULL,
-	extra 		 varchar(255) NOT NULL,
-	created_at   timestamp NOT NULL
+	client        varchar(255) BINARY NOT NULL,
+	code          varchar(255) BINARY NOT NULL PRIMARY KEY,
+	expires_in    int(10) NOT NULL,
+	scope         varchar(255) NOT NULL,
+	redirect_uri  varchar(255) NOT NULL,
+	state         varchar(255) NOT NULL,
+	extra 		 		varchar(255) NOT NULL,
+	created_at  	timestamp NOT NULL
 )`, `CREATE TABLE IF NOT EXISTS {prefix}access (
 	client        varchar(255) BINARY NOT NULL,
+	user_id				int(10) NOT NULL,
 	authorize     varchar(255) BINARY NOT NULL,
 	previous      varchar(255) BINARY NOT NULL,
 	access_token  varchar(255) BINARY NOT NULL PRIMARY KEY,
@@ -38,8 +39,9 @@ var schemas = []string{`CREATE TABLE IF NOT EXISTS {prefix}client (
 	expires_in    int(10) NOT NULL,
 	scope         varchar(255) NOT NULL,
 	redirect_uri  varchar(255) NOT NULL,
-	extra 		  varchar(255) NOT NULL,
-	created_at    timestamp NOT NULL
+	extra 		  	varchar(255) NOT NULL,
+	created_at    timestamp NOT NULL,
+	INDEX user_index (user_id)
 )`, `CREATE TABLE IF NOT EXISTS {prefix}refresh (
 	token         varchar(255) BINARY NOT NULL PRIMARY KEY,
 	access        varchar(255) BINARY NOT NULL
@@ -128,6 +130,32 @@ func (s *Storage) RemoveClient(id string) (err error) {
 		return merry.Wrap(err)
 	}
 	return nil
+}
+
+// GetUser loads the user by id (user_id)
+func (s *Storage) GetUser(id int) (osin.User, error) {
+	row := s.db.QueryRow("SELECT id, name, last_name, email, password FROM users WHERE id=?", id)
+	var u osin.DefaultUser
+
+	if err := row.Scan(&u.Id, &u.Name, &u.LastName, &u.Email, &u.Password); err == sql.ErrNoRows {
+		return nil, osin.ErrNotFound
+	} else if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	return &u, nil
+}
+
+// GetUserByEmail loads the user by email
+func (s *Storage) GetUserByEmail(email string) (osin.User, error) {
+	row := s.db.QueryRow("SELECT id, name, last_name, email, password FROM users WHERE email=?", email)
+	var u osin.DefaultUser
+
+	if err := row.Scan(&u.Id, &u.Name, &u.LastName, &u.Email, &u.Password); err == sql.ErrNoRows {
+		return nil, osin.ErrNotFound
+	} else if err != nil {
+		return nil, merry.Wrap(err)
+	}
+	return &u, nil
 }
 
 // SaveAuthorize saves authorize data.
@@ -225,7 +253,11 @@ func (s *Storage) SaveAccess(data *osin.AccessData) (err error) {
 		return merry.New("data.Client must not be nil")
 	}
 
-	_, err = tx.Exec(fmt.Sprintf("INSERT INTO %saccess (client, authorize, previous, access_token, refresh_token, expires_in, scope, redirect_uri, created_at, extra) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", s.tablePrefix), data.Client.GetId(), authorizeData.Code, prev, data.AccessToken, data.RefreshToken, data.ExpiresIn, data.Scope, data.RedirectUri, data.CreatedAt, extra)
+	if data.User == nil {
+		return merry.New("data.User must not be nil")
+	}
+
+	_, err = tx.Exec(fmt.Sprintf("INSERT INTO %saccess (client, user_id, authorize, previous, access_token, refresh_token, expires_in, scope, redirect_uri, created_at, extra) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", s.tablePrefix), data.Client.GetId(), data.User.GetId(), authorizeData.Code, prev, data.AccessToken, data.RefreshToken, data.ExpiresIn, data.Scope, data.RedirectUri, data.CreatedAt, extra)
 	if err != nil {
 		if rbe := tx.Rollback(); rbe != nil {
 			return merry.Wrap(rbe)
@@ -248,13 +280,15 @@ func (s *Storage) SaveAccess(data *osin.AccessData) (err error) {
 // Optionally can return error if expired.
 func (s *Storage) LoadAccess(code string) (*osin.AccessData, error) {
 	var extra, cid, prevAccessToken, authorizeCode string
+	var uid int
 	var result osin.AccessData
 
 	if err := s.db.QueryRow(
-		fmt.Sprintf("SELECT client, authorize, previous, access_token, refresh_token, expires_in, scope, redirect_uri, created_at, extra FROM %saccess WHERE access_token=? LIMIT 1", s.tablePrefix),
+		fmt.Sprintf("SELECT client, user_id, authorize, previous, access_token, refresh_token, expires_in, scope, redirect_uri, created_at, extra FROM %saccess WHERE access_token=? LIMIT 1", s.tablePrefix),
 		code,
 	).Scan(
 		&cid,
+		&uid,
 		&authorizeCode,
 		&prevAccessToken,
 		&result.AccessToken,
@@ -277,6 +311,14 @@ func (s *Storage) LoadAccess(code string) (*osin.AccessData, error) {
 	}
 
 	result.Client = client
+
+	user, err := s.GetUser(uid)
+	if err != nil {
+		return nil, err
+	}
+
+	result.User = user
+
 	result.AuthorizeData, _ = s.LoadAuthorize(authorizeCode)
 	prevAccess, _ := s.LoadAccess(prevAccessToken)
 	result.AccessData = prevAccess
