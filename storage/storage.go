@@ -1,9 +1,9 @@
 // Package storage defines an interface, which all osin-storage implementations are going to support.
 package storage
 
-import "github.com/ccastillejo-accent/osin"
+import "github.com/ccaceres-watchman/osin"
 
-// Storage extends github.com/ccastillejo-accent/osin.Storage with create, update and delete methods for clients.
+// Storage extends github.com/ccaceres-watchman/osin.Storage with create, update and delete methods for clients.
 type Storage interface {
 	osin.Storage
 

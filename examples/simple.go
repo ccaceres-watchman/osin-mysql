@@ -6,8 +6,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/ccastillejo-accent/osin"
-	"github.com/ccastillejo-accent/osin/example"
+	"github.com/ccaceres-watchman/osin"
+	"github.com/ccaceres-watchman/osin/example"
 	"github.com/felipeweb/osin-mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"net/http"

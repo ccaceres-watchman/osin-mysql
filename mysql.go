@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/ansel1/merry"
-	"github.com/ccastillejo-accent/osin"
+	"github.com/ccaceres-watchman/osin"
 	"github.com/felipeweb/gopher-utils"
 	// driver for mysql db
 	_ "github.com/go-sql-driver/mysql"
@@ -54,7 +54,7 @@ var schemas = []string{`CREATE TABLE IF NOT EXISTS {prefix}client (
 )`,
 }
 
-// Storage implements interface "github.com/ccastillejo-accent/osin".Storage and interface "github.com/felipeweb/osin-mysql/storage".Storage
+// Storage implements interface "github.com/ccaceres-watchman/osin".Storage and interface "github.com/felipeweb/osin-mysql/storage".Storage
 type Storage struct {
 	db          *sql.DB
 	tablePrefix string
