@@ -253,6 +253,10 @@ func (s *Storage) SaveAccess(data *osin.AccessData) (err error) {
 		return merry.New("data.Client must not be nil")
 	}
 
+	if data.User == nil && data.AccessData != nil && data.AccessData.User != nil {
+		data.User = data.AccessData.User
+	}
+
 	if data.User == nil {
 		return merry.New("data.User must not be nil")
 	}
